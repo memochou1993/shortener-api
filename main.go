@@ -54,11 +54,22 @@ func init() {
 
 func main() {
 	r := mux.NewRouter()
+	r.HandleFunc("/{code}", Redirect).Methods(http.MethodGet)
 	r.HandleFunc("/api/links/{code}", ShowLink).Methods(http.MethodGet)
 	r.HandleFunc("/api/links", StoreLink).Methods(http.MethodPost)
 	r.HandleFunc("/api/links/{code}", DestroyLink).Methods(http.MethodDelete)
 
 	log.Fatal(http.ListenAndServe(":80", r))
+}
+
+func Redirect(w http.ResponseWriter, r *http.Request) {
+	link := Link{}
+	if err := findByCode(mux.Vars(r)["code"], &link); err != nil {
+		response(w, http.StatusNotFound, nil)
+		return
+	}
+
+	http.Redirect(w, r, link.Source, http.StatusMovedPermanently)
 }
 
 func StoreLink(w http.ResponseWriter, r *http.Request) {
@@ -82,15 +93,8 @@ func StoreLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func ShowLink(w http.ResponseWriter, r *http.Request) {
-	id, err := decode(mux.Vars(r)["code"])
-	if err != nil {
-		response(w, http.StatusNotFound, nil)
-		return
-	}
-
 	link := Link{}
-	err = db.Where("id = ?", id).First(&link).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := findByCode(mux.Vars(r)["code"], &link); err != nil {
 		response(w, http.StatusNotFound, nil)
 		return
 	}
@@ -101,15 +105,8 @@ func ShowLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func DestroyLink(w http.ResponseWriter, r *http.Request) {
-	id, err := decode(mux.Vars(r)["code"])
-	if err != nil {
-		response(w, http.StatusNotFound, nil)
-		return
-	}
-
 	link := Link{}
-	err = db.Where("id = ?", id).First(&link).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := findByCode(mux.Vars(r)["code"], &link); err != nil {
 		response(w, http.StatusNotFound, nil)
 		return
 	}
@@ -117,6 +114,18 @@ func DestroyLink(w http.ResponseWriter, r *http.Request) {
 	db.Delete(&link)
 
 	response(w, http.StatusNoContent, nil)
+}
+
+func findByCode(code string, link *Link) error {
+	id, err := decode(code)
+	if err != nil {
+		return err
+	}
+	err = db.Where("id = ?", id).First(&link).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	return nil
 }
 
 type Payload struct {
