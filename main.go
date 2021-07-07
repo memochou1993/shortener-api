@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/speps/go-hashids/v2"
@@ -13,23 +12,13 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 )
 
 var (
-	db *gorm.DB
+	db    *gorm.DB
+	count int64
 )
-
-type Application struct {
-	ID   uint   `gorm:"primarykey" json:"id"`
-	Salt string `json:"-"`
-	// TODO
-	// Links     []Link
-	CreatedAt time.Time       `json:"created_at"`
-	UpdatedAt time.Time       `json:"updated_at"`
-	DeletedAt *gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
-}
 
 type Link struct {
 	ID        uint            `gorm:"primarykey" json:"id"`
@@ -49,54 +38,36 @@ func init() {
 		os.Getenv("DB_PORT"),
 		os.Getenv("DB_DATABASE"),
 	)
-
 	var err error
-	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
-	if err != nil {
+	if db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{}); err != nil {
 		log.Fatal(err.Error())
 	}
-	if err := db.AutoMigrate(&Application{}, &Link{}); err != nil {
+	if err = db.AutoMigrate(&Link{}); err != nil {
 		log.Fatal(err.Error())
 	}
 }
 
 func main() {
 	r := mux.NewRouter()
-	r.HandleFunc("/applications", StoreApplication).Methods(http.MethodPost)
-	r.HandleFunc("/links/{code}", ShowLink).Methods(http.MethodGet)
-	r.HandleFunc("/links", StoreLink).Methods(http.MethodPost)
-	r.HandleFunc("/links/{code}", DestroyLink).Methods(http.MethodDelete)
+	r.HandleFunc("/api/links/{code}", ShowLink).Methods(http.MethodGet)
+	r.HandleFunc("/api/links", StoreLink).Methods(http.MethodPost)
+	r.HandleFunc("/api/links/{code}", DestroyLink).Methods(http.MethodDelete)
 
 	log.Fatal(http.ListenAndServe(":80", r))
 }
 
-func StoreApplication(w http.ResponseWriter, r *http.Request) {
-	application := Application{
-		Salt: strings.ReplaceAll(uuid.NewString(), "-", ""),
-	}
-	if err := json.NewDecoder(r.Body).Decode(&application); err != nil {
-		response(w, http.StatusInternalServerError, Payload{Error: err.Error()})
-		return
-	}
-
-	db.Create(&application)
-
-	response(w, http.StatusCreated, Payload{
-		Data: application,
-	})
-}
-
 func StoreLink(w http.ResponseWriter, r *http.Request) {
-	// TODO: use token and find application ID
 	link := Link{}
 	if err := json.NewDecoder(r.Body).Decode(&link); err != nil {
 		response(w, http.StatusInternalServerError, Payload{Error: err.Error()})
 		return
 	}
 
-	var count int64
-	db.Model(&Link{}).Unscoped().Count(&count)
-	link.Code = encode("salt", count+1) // FIXME
+	if count == 0 {
+		db.Model(&Link{}).Unscoped().Count(&count)
+	}
+	count++
+	link.Code = encode(count)
 
 	db.Create(&link)
 
@@ -106,7 +77,6 @@ func StoreLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func ShowLink(w http.ResponseWriter, r *http.Request) {
-	// TODO: use token and find application ID
 	code := mux.Vars(r)["code"]
 
 	link := Link{}
@@ -122,12 +92,7 @@ func ShowLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func DestroyLink(w http.ResponseWriter, r *http.Request) {
-	// TODO: use token and find application ID
 	code := mux.Vars(r)["code"]
-
-	hd := hashids.NewData()
-	hd.Salt = "salt" // FIXME
-	hd.MinLength = 5
 
 	link := Link{}
 	err := db.Where("code = ?", code).First(&link).Error
@@ -158,9 +123,9 @@ func response(w http.ResponseWriter, code int, v interface{}) {
 	}
 }
 
-func encode(salt string, id int64) string {
+func encode(id int64) string {
 	hd := hashids.NewData()
-	hd.Salt = salt
+	hd.Salt = os.Getenv("APP_KEY")
 	hd.MinLength = 5
 
 	h, _ := hashids.NewWithData(hd)
