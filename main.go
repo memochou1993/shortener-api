@@ -16,12 +16,13 @@ import (
 )
 
 var (
+	hd    *hashids.HashIDData
 	db    *gorm.DB
 	count int64
 )
 
 type Link struct {
-	ID        uint            `gorm:"primarykey" json:"id"`
+	ID        uint            `gorm:"primarykey" json:"-"`
 	Source    string          `json:"source"`
 	Code      string          `gorm:"index" json:"code"`
 	CreatedAt time.Time       `json:"created_at"`
@@ -30,6 +31,10 @@ type Link struct {
 }
 
 func init() {
+	hd = hashids.NewData()
+	hd.Salt = os.Getenv("APP_KEY")
+	hd.MinLength = 5
+
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true",
 		os.Getenv("DB_USERNAME"),
@@ -77,10 +82,14 @@ func StoreLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func ShowLink(w http.ResponseWriter, r *http.Request) {
-	code := mux.Vars(r)["code"]
+	id, err := decode(mux.Vars(r)["code"])
+	if err != nil {
+		response(w, http.StatusNotFound, nil)
+		return
+	}
 
 	link := Link{}
-	err := db.Where("code = ?", code).First(&link).Error
+	err = db.Where("id = ?", id).First(&link).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		response(w, http.StatusNotFound, nil)
 		return
@@ -92,10 +101,14 @@ func ShowLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func DestroyLink(w http.ResponseWriter, r *http.Request) {
-	code := mux.Vars(r)["code"]
+	id, err := decode(mux.Vars(r)["code"])
+	if err != nil {
+		response(w, http.StatusNotFound, nil)
+		return
+	}
 
 	link := Link{}
-	err := db.Where("code = ?", code).First(&link).Error
+	err = db.Where("id = ?", id).First(&link).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		response(w, http.StatusNotFound, nil)
 		return
@@ -124,11 +137,16 @@ func response(w http.ResponseWriter, code int, v interface{}) {
 }
 
 func encode(id int64) string {
-	hd := hashids.NewData()
-	hd.Salt = os.Getenv("APP_KEY")
-	hd.MinLength = 5
-
 	h, _ := hashids.NewWithData(hd)
 	e, _ := h.Encode([]int{int(id)})
 	return e
+}
+
+func decode(code string) (int, error) {
+	h, _ := hashids.NewWithData(hd)
+	d, err := h.DecodeWithError(code)
+	if err != nil {
+		return 0, err
+	}
+	return d[0], nil
 }
