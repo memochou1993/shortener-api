@@ -57,7 +57,6 @@ func main() {
 	r.HandleFunc("/{code}", Redirect).Methods(http.MethodGet)
 	r.HandleFunc("/api/links/{code}", ShowLink).Methods(http.MethodGet)
 	r.HandleFunc("/api/links", StoreLink).Methods(http.MethodPost)
-	r.HandleFunc("/api/links/{code}", DestroyLink).Methods(http.MethodDelete)
 
 	log.Fatal(http.ListenAndServe(":80", r))
 }
@@ -102,18 +101,6 @@ func ShowLink(w http.ResponseWriter, r *http.Request) {
 	response(w, http.StatusOK, Payload{
 		Data: link,
 	})
-}
-
-func DestroyLink(w http.ResponseWriter, r *http.Request) {
-	link := Link{}
-	if err := findByCode(mux.Vars(r)["code"], &link); err != nil {
-		response(w, http.StatusNotFound, nil)
-		return
-	}
-
-	db.Delete(&link)
-
-	response(w, http.StatusNoContent, nil)
 }
 
 func findByCode(code string, link *Link) error {
