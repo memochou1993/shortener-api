@@ -54,9 +54,9 @@ func init() {
 
 func main() {
 	r := mux.NewRouter()
-	r.HandleFunc("/{code}", Redirect).Methods(http.MethodGet)
-	r.HandleFunc("/api/links/{code}", ShowLink).Methods(http.MethodGet)
-	r.HandleFunc("/api/links", StoreLink).Methods(http.MethodPost)
+	r.HandleFunc("/{code}", Redirect).Methods(http.MethodGet, http.MethodOptions)
+	r.HandleFunc("/api/links/{code}", ShowLink).Methods(http.MethodGet, http.MethodOptions)
+	r.HandleFunc("/api/links", StoreLink).Methods(http.MethodPost, http.MethodOptions)
 
 	log.Fatal(http.ListenAndServe(":80", r))
 }
