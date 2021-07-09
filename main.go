@@ -62,6 +62,10 @@ func main() {
 }
 
 func Redirect(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		response(w, http.StatusOK, nil)
+		return
+	}
 	link := Link{}
 	if err := findByCode(mux.Vars(r)["code"], &link); err != nil {
 		response(w, http.StatusNotFound, nil)
@@ -72,6 +76,10 @@ func Redirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func StoreLink(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		response(w, http.StatusOK, nil)
+		return
+	}
 	link := Link{}
 	if err := json.NewDecoder(r.Body).Decode(&link); err != nil {
 		response(w, http.StatusInternalServerError, Payload{Error: err.Error()})
@@ -92,6 +100,10 @@ func StoreLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func ShowLink(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		response(w, http.StatusOK, nil)
+		return
+	}
 	link := Link{}
 	if err := findByCode(mux.Vars(r)["code"], &link); err != nil {
 		response(w, http.StatusNotFound, nil)
