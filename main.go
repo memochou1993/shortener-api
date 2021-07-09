@@ -76,7 +76,6 @@ func Redirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func StoreLink(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.Method)
 	if r.Method == http.MethodOptions {
 		response(w, http.StatusOK, nil)
 		return
