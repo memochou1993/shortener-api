@@ -135,6 +135,7 @@ type Payload struct {
 func response(w http.ResponseWriter, code int, v interface{}) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	w.WriteHeader(code)
 	if v == nil {
 		return
