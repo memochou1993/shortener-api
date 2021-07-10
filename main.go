@@ -25,6 +25,7 @@ type Link struct {
 	ID        uint            `gorm:"primarykey" json:"-"`
 	Source    string          `json:"source"`
 	Code      string          `gorm:"index" json:"code"`
+	Key       string          `gorm:"key" json:"key"`
 	CreatedAt time.Time       `json:"created_at"`
 	UpdatedAt time.Time       `json:"updated_at"`
 	DeletedAt *gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
@@ -57,6 +58,7 @@ func main() {
 	r.HandleFunc("/{code}", Redirect).Methods(http.MethodGet, http.MethodOptions)
 	r.HandleFunc("/api/links/{code}", ShowLink).Methods(http.MethodGet, http.MethodOptions)
 	r.HandleFunc("/api/links", StoreLink).Methods(http.MethodPost, http.MethodOptions)
+	r.HandleFunc("/api/links/{code}", DestroyLink).Methods(http.MethodDelete, http.MethodOptions)
 
 	log.Fatal(http.ListenAndServe(":80", r))
 }
@@ -113,6 +115,26 @@ func ShowLink(w http.ResponseWriter, r *http.Request) {
 	response(w, http.StatusOK, Payload{
 		Data: link,
 	})
+}
+
+func DestroyLink(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		response(w, http.StatusOK, nil)
+		return
+	}
+	link := Link{}
+	if err := findByCode(mux.Vars(r)["code"], &link); err != nil {
+		response(w, http.StatusNotFound, nil)
+		return
+	}
+	if link.Key != "" && link.Key != r.URL.Query().Get("key") {
+		response(w, http.StatusForbidden, nil)
+		return
+	}
+
+	db.Delete(&link)
+
+	response(w, http.StatusNoContent, nil)
 }
 
 func findByCode(code string, link *Link) error {
