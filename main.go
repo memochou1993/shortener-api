@@ -247,9 +247,7 @@ func find(code string, link *Link) error {
 }
 
 func store(link *Link) {
-	if count == 0 {
-		db.Model(link).Unscoped().Count(&count)
-	}
+	db.Model(link).Unscoped().Count(&count)
 	count++
 	link.Code = encode(count)
 	db.Create(link)
