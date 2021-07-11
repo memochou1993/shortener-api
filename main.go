@@ -105,7 +105,6 @@ func Redirect(w http.ResponseWriter, r *http.Request) {
 		response(w, http.StatusNotFound, nil)
 		return
 	}
-	log.Println(link.Source)
 	http.Redirect(w, r, link.Source, http.StatusMovedPermanently)
 }
 
